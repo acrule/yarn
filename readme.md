@@ -1,3 +1,3 @@
-# History
+# Yarn
 
-This extension tracks a basic count of the number of times you have executed each code cell.
+Yarn is a Jupyter Notebook extension that tracks an editable version history for each cell.
