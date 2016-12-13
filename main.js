@@ -12,19 +12,26 @@ define([
 
 // VERSION MARKER EVENTS
     // changes cell metadata and marker highlighting
-    function change_version(marker, cell, v){
+    function change_version(cell, v){
         cell.metadata.current_version = v;
         var input_area = cell.element.find('div.input_area')[0];
         var markers = input_area.getElementsByClassName('version')
         for (var i = 0; i < markers.length; i++){
             markers[i].style.background = "#ccc";
+            if (i == v){
+                markers[i].style.background = "#333";
+            }
         }
-        marker.style.background = "#333";
+        cell.set_text(cell.metadata.versions[v]['in']);
+        cell.output_area.clear_output()
+        for(var i = 0; i < cell.metadata.versions[v]['out'].length; i++){
+            cell.output_area.append_output(cell.metadata.versions[v]['out'][i])
+        }
     }
 
-    function createClick(marker, cell, v){
+    function createClick(cell, v){
         return function() {
-          change_version(marker, cell, v);
+          change_version(cell, v);
         }
     }
 
@@ -127,8 +134,6 @@ define([
             newElement.style.textAlign = "center";
 
             // events
-            // newElement.onmouseover = createSummaryMouseover(newElement, cell, v);
-            // newElement.onmouseout = createMouseout(newElement, cell, v);
             newElement.onclick = createSummaryClick(newElement, cell);
 
             input_area.appendChild(newElement);
@@ -167,9 +172,10 @@ define([
                     newElement.style.background = "#ccc";
                 }
                 // events
-                newElement.onmouseover = createMouseover(newElement, cell, v);
-                newElement.onmouseout = createMouseout(newElement, cell, v);
-                newElement.onclick = createClick(newElement, cell, v);
+                // newElement.onmouseover = createMouseover(newElement, cell, v);
+                // newElement.onmouseout = createMouseout(newElement, cell, v);
+                newElement.onclick = createClick(cell, v);
+                // newElement.oncontextmenu = createContextClick(newElement, cell);
 
                 input_area.appendChild(newElement);
             }
@@ -218,8 +224,41 @@ define([
 		}
     }
 
+    // patch keydown to have events for manipulating history
+    function patch_keydown(){
+        document.onkeydown = function(e){
+            cell = Jupyter.notebook.get_selected_cell();
+            input_area = cell.element.find('div.input_area')[0];
+            expanded = input_area.getElementsByClassName("expanded");
+            if (cell.mode == "command" && expanded.length > 0){
+                if (e.keyCode == 37){ // left
+                    old_version = cell.metadata.current_version;
+                    if (old_version > 0){
+                        v = old_version - 1;
+                        change_version(cell, v)
+                    }
+                }
+                else if(e.keyCode == 39){ // right
+                    old_version = cell.metadata.current_version;
+                    if (old_version < cell.metadata.versions.length - 1){
+                        v = old_version + 1;
+                        change_version(cell, v)
+                    }
+                }
+                else if(e.keyCode == 8 && cell.metadata.versions.length > 1){ // delete, and check there are at least two versions
+                    cell.metadata.versions.splice(cell.metadata.current_version, 1);
+                    if (cell.metadata.versions.length -1 == cell.metadata.current_version){
+                        cell.metadata.current_version--;
+                    }
+                    render_version_markers(cell);
+                }
+            }
+        }
+    }
+
     function load_extension(){
         patch_CodeCell_execute();
+        patch_keydown();
         // module loading is asynchronous so we need to handle
         // the case where the notebook is not yet loaded
         if (typeof Jupyter.notebook === "undefined") {
