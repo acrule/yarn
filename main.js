@@ -1,14 +1,28 @@
 define([
+    'require',
+    'jquery',
     'base/js/namespace',
     'notebook/js/codecell',
     'base/js/events'
 ],function(
+    require,
+    $,
     Jupyter,
     codecell,
     events
 ){
 
+    // reference for later use
     var CodeCell = codecell.CodeCell;
+
+    // load external stylesheet from main.css
+    var load_css = function() {
+        var link = document.createElement("link");
+        link.type = "text/css";
+        link.rel = "stylesheet";
+        link.href = require.toUrl("./main.css");
+        document.getElementsByTagName("head")[0].appendChild(link);
+    };
 
 // MARKER CLICK EVENTS
     // changes cell metadata, input, output, and  marker highlighting
@@ -17,26 +31,20 @@ define([
         var markers = input_area.getElementsByClassName('version')
         var versions = cell.metadata.versions
 
-        // metadata
+        // update cell metadata
         cell.metadata.current_version = v;
 
-        // input
+        // update cell input and output
         cell.set_text(versions[v]['in']);
-
-        // output
         cell.output_area.clear_output()
         for(var i = 0; i < versions[v]['out'].length; i++){
             cell.output_area.append_output(versions[v]['out'][i])
         }
 
-        // highlighting
+        // highlight marker for selected version
         for (var i = 0; i < markers.length; i++){
-            if (i == v){
-                markers[i].style.background = "#333";
-            }
-            else{
-                markers[i].style.background = "#ccc";
-            }
+            if (i == v){ markers[i].classList.add('selected-version') }
+            else{ markers[i].classList.remove('selected-version') }
         }
     }
 
@@ -70,42 +78,20 @@ define([
                 markers[0].parentNode.removeChild(markers[0]);
             }
 
-            // prepare for absolute positioning of marker
-            input_area.style.position = "relative";
+            if (cell.selected){
+                // prepare for absolute positioning of marker
+                input_area.style.position = "relative";
 
-            // prepare text and positioning of marker
-            if (showing){
-                var sum_text = ">"
-                var sum_x = 30 * (num_versions) + 6
+                // styling
+                var newElement = document.createElement('div');
+                newElement.className = "marker summary fa fa-undo"
+                newElement.style.right = "2px"; // could cause a bug here
+
+                // events
+                newElement.onclick = createSummaryClick(newElement, cell);
+
+                input_area.appendChild(newElement);
             }
-            else{
-                var sum_text = num_versions
-                var sum_x = 6
-            }
-
-            // styling
-            var newElement = document.createElement('div');
-            newElement.className = "marker summary"
-            newElement.style.width = "24px";
-            newElement.style.height = "24px";
-            newElement.style.border = "2px solid #cfcfcf";
-            newElement.style.borderRadius = "12px";
-            newElement.style.position = "absolute";
-            newElement.style.top = "6px";
-            newElement.style.right = sum_x + "px"; // could cause a bug here
-            newElement.style.zIndex = 10;
-            newElement.style.background = "#999";
-
-            // text
-            newElement.innerHTML = sum_text;
-            newElement.style.color = "#fff";
-            newElement.style.padding = "3px 0px 0px";
-            newElement.style.textAlign = "center";
-
-            // events
-            newElement.onclick = createSummaryClick(newElement, cell);
-
-            input_area.appendChild(newElement);
         }
     }
 
@@ -121,7 +107,7 @@ define([
                 markers[0].parentNode.removeChild(markers[0]);
             }
 
-            if(showing && num_versions > 0){
+            if(showing && cell.selected && num_versions > 0){
 
                 // prepare for absolute positioning of markers
                 input_area.style.position = "relative";
@@ -130,24 +116,22 @@ define([
                 for(var v = 0; v < num_versions; v++){
                     var newElement = document.createElement('div');
                     newElement.className = "marker version";
-                    newElement.style.width = "24px";
-                    newElement.style.height = "24px";
-                    newElement.style.border = "2px solid #cfcfcf";
-                    newElement.style.borderRadius = "12px";
-                    newElement.style.position = "absolute";
-                    newElement.style.top = "6px";
-                    newElement.style.right = (30 * (num_versions-v-1) + 6).toString() + "px";
-                    newElement.style.zIndex = 10;
+                    newElement.style.right = (28 * (num_versions-v) + 2).toString() + "px";
 
                     // assign colors
                     if (v == cell.metadata.current_version){
-                        newElement.style.background = "#333";
+                        //newElement.style.background = "#ccc";
+                        newElement.classList.add('selected-version')
                     } else {
-                        newElement.style.background = "#ccc";
+                        //newElement.style.background = "#fff";
+                        newElement.classList.remove('selected-version')
                     }
 
                     // events
                     newElement.onclick = createVersionClick(cell, v);
+                    newElement.ondblclick = function(){
+                        console.log("You double clicked this element!");                        
+                    }
 
                     input_area.appendChild(newElement);
                 }
@@ -160,7 +144,6 @@ define([
         if (cell.metadata.versions_showing === undefined){
             cell.metadata.versions_showing = false;
         }
-
         render_version_markers(cell);
         render_summary_marker(cell);
     }
@@ -210,6 +193,28 @@ define([
 		}
     }
 
+    function patch_CodeCell_select(){
+        console.log('[Yarn] patching CodeCell.prototype.select');
+		var old_select = CodeCell.prototype.select;
+
+        CodeCell.prototype.select = function () {
+            old_select.apply(this, arguments);
+            render_markers(this);
+		}
+    }
+
+    function patch_CodeCell_unselect(){
+        console.log('[Yarn] patching CodeCell.prototype.unselect');
+		var old_unselect = CodeCell.prototype.unselect;
+
+        CodeCell.prototype.unselect = function () {
+            old_unselect.apply(this, arguments);
+            //this.metadata.versions_showing = false;
+            render_markers(this);
+		}
+
+    }
+
     function patch_keydown(){
         document.onkeydown = function(e){
             var cell = Jupyter.notebook.get_selected_cell();
@@ -242,7 +247,10 @@ define([
     }
 
     function load_extension(){
+        load_css();
         patch_CodeCell_execute();
+        patch_CodeCell_select();
+        patch_CodeCell_unselect();
         patch_keydown();
 
         // module loading is asynchronous so we need to handle
