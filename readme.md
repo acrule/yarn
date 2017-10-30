@@ -8,10 +8,10 @@ trouble, see these more [detailed instructions](
     frontend_extensions.html)
 about installing Jupyter extensions.
 
-'''
+```
 jupyter nbextension install path/to/yarn/
 jupyter nbextension enable path/to/yarn/main
 
-'''
+```
 
 ![Yarn showing cell versions](img/yarn.gif)
