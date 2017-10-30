@@ -1,7 +1,6 @@
 Type: IPython Notebook Extension
-Name: History
+Name: Yarn
 Description: Track number of times cells have been executed
 Link: readme.md
-Icon: icon.png
 Main: main.js
 Compatibility: 4.x
