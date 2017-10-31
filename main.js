@@ -15,8 +15,8 @@ define([
     // reference for later use
     var CodeCell = codecell.CodeCell;
 
-    // load external stylesheet from main.css
     var load_css = function() {
+        // load external stylesheet from main.css
         var link = document.createElement("link");
         link.type = "text/css";
         link.rel = "stylesheet";
@@ -48,9 +48,10 @@ define([
         }
     }
 
-    function createVersionClick(cell, v){
+    function createVersionClick(cell, v, element){
         return function() {
-          change_version(cell, v);
+            //listenForDoubleClick(element);
+            change_version(cell, v);
         }
     }
 
@@ -78,19 +79,21 @@ define([
                 markers[0].parentNode.removeChild(markers[0]);
             }
 
-            if (cell.selected){
-                // prepare for absolute positioning of marker
-                input_area.style.position = "relative";
+            // prepare for absolute positioning of marker
+            input_area.style.position = "relative";
 
-                // styling
-                var newElement = document.createElement('div');
-                newElement.className = "marker summary fa fa-undo"
-                newElement.style.right = "2px"; // could cause a bug here
+            // styling
+            var newElement = document.createElement('div');
+            newElement.className = "marker summary fa fa-undo"
+            newElement.style.right = "2px"; // could cause a bug here
 
-                // events
-                newElement.onclick = createSummaryClick(newElement, cell);
+            // events
+            newElement.onclick = createSummaryClick(newElement, cell);
 
-                input_area.appendChild(newElement);
+            input_area.appendChild(newElement);
+
+            if (!cell.selected){
+                hide_markers(cell)
             }
         }
     }
@@ -120,23 +123,51 @@ define([
 
                     // assign colors
                     if (v == cell.metadata.current_version){
-                        //newElement.style.background = "#ccc";
                         newElement.classList.add('selected-version')
                     } else {
-                        //newElement.style.background = "#fff";
                         newElement.classList.remove('selected-version')
                     }
 
-                    // events
-                    newElement.onclick = createVersionClick(cell, v);
-                    newElement.ondblclick = function(){
-                        console.log("You double clicked this element!");                        
+                    if(cell.metadata.versions[v].name){
+                        newElement.innerHTML = cell.metadata.versions[v].name
                     }
+
+                    // events
+                    newElement.onclick = createVersionClick(cell, v, newElement);
+                    newElement.ondblclick = function(){ enableVersionNameEditing(this)}
+                    newElement.onfocusout = function(){ disableVersionNameEditing(this, cell)}
 
                     input_area.appendChild(newElement);
                 }
             }
         }
+    }
+
+    function listenForDoubleClick(element) {
+        element.contentEditable = true;
+        Jupyter.notebook.keyboard_manager.edit_mode();
+        setTimeout(function() {
+            if (document.activeElement !== element) {
+                element.contentEditable = false;
+            }
+        }, 300);
+    }
+
+    function enableVersionNameEditing(element){
+        console.log("Double Click")
+        element.contentEditable = true;
+        element.focus()
+        Jupyter.notebook.keyboard_manager.edit_mode();
+    }
+
+    function disableVersionNameEditing(element, cell){
+        console.log("Disable Naming")
+        element.contentEditable = false;
+        Jupyter.notebook.keyboard_manager.command_mode();
+
+        // get the cell
+        this_version = cell.metadata.current_version
+        cell.metadata.versions[this_version].name = element.innerHTML
     }
 
     function render_markers(cell){
@@ -156,6 +187,14 @@ define([
                 render_markers(cell);
             }
         }
+    }
+
+    function hide_markers(cell){
+        $(cell.element[0]).find(".marker").hide()
+    }
+
+    function show_markers(cell){
+        $(cell.element[0]).find(".marker").show()
     }
 
 // VERSION CONTROL
@@ -186,7 +225,6 @@ define([
     function patch_CodeCell_execute(){
         console.log('[Yarn] patching CodeCell.prototype.execute');
 		var old_execute = CodeCell.prototype.execute;
-
         CodeCell.prototype.execute = function () {
             old_execute.apply(this, arguments);
             check_version(this);
@@ -196,21 +234,18 @@ define([
     function patch_CodeCell_select(){
         console.log('[Yarn] patching CodeCell.prototype.select');
 		var old_select = CodeCell.prototype.select;
-
         CodeCell.prototype.select = function () {
             old_select.apply(this, arguments);
-            render_markers(this);
+            show_markers(this);
 		}
     }
 
     function patch_CodeCell_unselect(){
         console.log('[Yarn] patching CodeCell.prototype.unselect');
 		var old_unselect = CodeCell.prototype.unselect;
-
         CodeCell.prototype.unselect = function () {
             old_unselect.apply(this, arguments);
-            //this.metadata.versions_showing = false;
-            render_markers(this);
+            hide_markers(this);
 		}
 
     }
@@ -221,7 +256,7 @@ define([
             var expanded = cell.metadata.versions_showing
             var versions = cell.metadata.versions
 
-            if (cell.mode == "command" && expanded){ // if not editing cell and versions are showing
+            if (Jupyter.notebook.keyboard_manager.mode == "command" && expanded){ // if not editing cell and versions are showing
                 if (e.keyCode == 37){ // left
                     if (cell.metadata.current_version > 0){
                         cell.metadata.current_version--;
