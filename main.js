@@ -86,7 +86,21 @@ define([
             // events
             newElement.onclick = createSummaryClick(newElement, cell);
 
-            $(input_area).find('.marker-container')[0].appendChild(newElement);
+            if($(input_area).find('.marker-container')[0]){
+                $(input_area).find('.marker-container')[0].appendChild(newElement);
+            }
+            else{
+                var input_area = cell.element.find('div.input_area')[0];
+                var markerContainer = document.createElement('div')
+
+                // prepare for absolute positioning of marker
+                input_area.style.position = "relative";
+
+                markerContainer.className = "marker-container"
+                input_area.appendChild(markerContainer);
+
+                $(input_area).find('.marker-container')[0].appendChild(newElement);
+            }
 
             if (!cell.selected){
                 hide_markers(cell)
@@ -133,7 +147,23 @@ define([
                     newElement.ondblclick = function(){ enableVersionNameEditing(this)}
                     newElement.onfocusout = function(){ disableVersionNameEditing(this, cell)}
 
-                    $(input_area).find('.marker-container')[0].appendChild(newElement);
+                    if($(input_area).find('.marker-container')[0]){
+                        $(input_area).find('.marker-container')[0].appendChild(newElement);
+                    }
+                    else{
+                        var input_area = cell.element.find('div.input_area')[0];
+                        var markerContainer = document.createElement('div')
+
+                        // prepare for absolute positioning of marker
+                        input_area.style.position = "relative";
+
+                        markerContainer.className = "marker-container"
+                        input_area.appendChild(markerContainer);
+
+                        $(input_area).find('.marker-container')[0].appendChild(newElement);
+                    }
+
+
                 }
             }
         }
