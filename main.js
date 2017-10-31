@@ -79,18 +79,14 @@ define([
                 markers[0].parentNode.removeChild(markers[0]);
             }
 
-            // prepare for absolute positioning of marker
-            input_area.style.position = "relative";
-
             // styling
             var newElement = document.createElement('div');
             newElement.className = "marker summary fa fa-undo"
-            newElement.style.right = "2px"; // could cause a bug here
 
             // events
             newElement.onclick = createSummaryClick(newElement, cell);
 
-            input_area.appendChild(newElement);
+            $(input_area).find('.marker-container')[0].appendChild(newElement);
 
             if (!cell.selected){
                 hide_markers(cell)
@@ -119,7 +115,6 @@ define([
                 for(var v = 0; v < num_versions; v++){
                     var newElement = document.createElement('div');
                     newElement.className = "marker version";
-                    newElement.style.right = (28 * (num_versions-v) + 2).toString() + "px";
 
                     // assign colors
                     if (v == cell.metadata.current_version){
@@ -128,6 +123,7 @@ define([
                         newElement.classList.remove('selected-version')
                     }
 
+                    // render version name
                     if(cell.metadata.versions[v].name){
                         newElement.innerHTML = cell.metadata.versions[v].name
                     }
@@ -137,7 +133,7 @@ define([
                     newElement.ondblclick = function(){ enableVersionNameEditing(this)}
                     newElement.onfocusout = function(){ disableVersionNameEditing(this, cell)}
 
-                    input_area.appendChild(newElement);
+                    $(input_area).find('.marker-container')[0].appendChild(newElement);
                 }
             }
         }
@@ -184,6 +180,16 @@ define([
         for (var i = 0; i < cells.length; i++){
             var cell = cells[i];
             if (cell instanceof CodeCell) {
+
+                var input_area = cell.element.find('div.input_area')[0];
+                var markerContainer = document.createElement('div')
+
+                // prepare for absolute positioning of marker
+                input_area.style.position = "relative";
+
+                markerContainer.className = "marker-container"
+                input_area.appendChild(markerContainer);
+
                 render_markers(cell);
             }
         }
